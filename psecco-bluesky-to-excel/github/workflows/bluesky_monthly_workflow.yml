@@ -1,0 +1,33 @@
+name: Automated Monthly Tasks
+
+on:
+  schedule:
+    # Runs at 00:00 UTC on the 1st day of each month
+    - cron: "0 0 1 * *"
+
+jobs:
+  bluesky_followers_tracker:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Fetch Bluesky Followers
+      run: python scripts/fetch_bluesky_followers.py
+
+    - name: Commit and Push Updates
+      run: |
+        git config --global user.name 'github-actions'
+        git config --global user.email 'github-actions@github.com'
+        git add data/follower_counts.csv
+        git commit -m "Monthly BlueSky follower update - $(date '+%Y-%m-%d')" || echo "No changes to commit"
+        git push
