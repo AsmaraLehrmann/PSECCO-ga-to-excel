@@ -17,11 +17,12 @@ today = date.today().replace(day=1)
 start = (today - timedelta(days=1)).replace(day=1)
 end   = today - timedelta(days=1)
 
-response = ga_client.run_report(
-    property=f"properties/{os.environ['GA4_PROPERTY_ID']}",
-    date_ranges=[{"start_date": start.isoformat(), "end_date": end.isoformat()}],
-    metrics=[{"name": "totalUsers"}]
-)
+# → use the “request” dict instead of property=…
+response = ga_client.run_report(request={
+    "property": f"properties/{os.environ['GA4_PROPERTY_ID']}",
+    "date_ranges": [{"start_date": start.isoformat(), "end_date": end.isoformat()}],
+    "metrics": [{"name": "totalUsers"}]
+})
 users = int(response.rows[0].metric_values[0].value)
 print(f"GA4: {users} users from {start} to {end}")
 
