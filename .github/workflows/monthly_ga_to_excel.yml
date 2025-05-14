@@ -1,0 +1,39 @@
+name: "📊 Monthly GA → Excel Update"
+
+on:
+  schedule:
+    # Runs at 02:00 America/Chicago (07:00 UTC) on the 1st of each month
+    - cron: '0 7 1 * *'
+  workflow_dispatch: {}
+
+jobs:
+  update-ga-excel:
+    name: Run GA→Excel Script
+    runs-on: ubuntu-latest
+
+    env:
+      GA_CREDENTIALS_JSON: ${{ secrets.GA_CREDENTIALS_JSON }}
+      GA4_PROPERTY_ID:     ${{ secrets.GA4_PROPERTY_ID }}
+      GRAPH_TENANT_ID:     ${{ secrets.GRAPH_TENANT_ID }}
+      GRAPH_CLIENT_ID:     ${{ secrets.GRAPH_CLIENT_ID }}
+      GRAPH_CLIENT_SECRET: ${{ secrets.GRAPH_CLIENT_SECRET }}
+      GRAPH_WORKBOOK_PATH: ${{ secrets.GRAPH_WORKBOOK_PATH }}
+      GRAPH_TABLE_NAME:    ${{ secrets.GRAPH_TABLE_NAME }}
+      GRAPH_SHEET_NAME:    ${{ secrets.GRAPH_SHEET_NAME }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run GA → Excel automation
+        run: python analytics_to_excel.py
