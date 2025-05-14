@@ -3,12 +3,12 @@ import json
 from datetime import date, timedelta
 
 import pandas as pd
+import requests
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.oauth2 import service_account
 from azure.identity import ClientSecretCredential
-from msgraph.core import GraphClient
 
-# 1. GA4 service-account auth
+# ─── 1. GA4 service‐account auth ───────────────────────────────────────────────
 ga_info = json.loads(os.environ["GA_CREDENTIALS_JSON"])
 ga_creds = service_account.Credentials.from_service_account_info(ga_info)
 ga_client = BetaAnalyticsDataClient(credentials=ga_creds)
@@ -25,20 +25,31 @@ response = ga_client.run_report(
 users = int(response.rows[0].metric_values[0].value)
 print(f"GA4: {users} users from {start} to {end}")
 
-# 2. Microsoft Graph auth + append row
+# ─── 2. Get an access token for Microsoft Graph ────────────────────────────────
 tenant_id     = os.environ["GRAPH_TENANT_ID"]
 client_id     = os.environ["GRAPH_CLIENT_ID"]
 client_secret = os.environ["GRAPH_CLIENT_SECRET"]
-cred          = ClientSecretCredential(tenant_id, client_id, client_secret)
-graph_client  = GraphClient(credential=cred, scopes=["https://graph.microsoft.com/.default"])
+credential    = ClientSecretCredential(tenant_id, client_id, client_secret)
+token = credential.get_token("https://graph.microsoft.com/.default")
+access_token = token.token
 
-path      = os.environ["GRAPH_WORKBOOK_PATH"]  # e.g. "PSECCO/MonthlyStats.xlsx"
-table     = os.environ.get("GRAPH_TABLE_NAME", "Table1")
-drive_item = graph_client.get(f"/me/drive/root:/{path}:/").json()
-item_id    = drive_item["id"]
+headers = {
+    "Authorization": f"Bearer {access_token}",
+    "Content-Type": "application/json"
+}
 
+# ─── 3. Find your workbook’s driveItem ID ──────────────────────────────────────
+workbook_path = os.environ["GRAPH_WORKBOOK_PATH"]
+url_meta = f"https://graph.microsoft.com/v1.0/me/drive/root:/{workbook_path}:"
+r = requests.get(url_meta, headers=headers)
+r.raise_for_status()
+item_id = r.json()["id"]
+
+# ─── 4. Append the row to your table ───────────────────────────────────────────
+table_name = os.environ.get("GRAPH_TABLE_NAME", "Table1")
 row = [[ start.strftime("%Y-%m"), users ]]
-graph_client.post(f"/me/drive/items/{item_id}/workbook/tables/{table}/rows/add",
-                  json={"values": row})
+url_rows = f"https://graph.microsoft.com/v1.0/me/drive/items/{item_id}/workbook/tables/{table_name}/rows/add"
+r2 = requests.post(url_rows, headers=headers, json={"values": row})
+r2.raise_for_status()
 
 print("✅ Appended row to Excel table")
